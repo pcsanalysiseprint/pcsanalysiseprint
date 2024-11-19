@@ -1,0 +1,1833 @@
+theory TokenPassing begin
+
+// Function signature and definition of the equational theory E
+
+functions: fst/1, pair/2, snd/1
+equations: fst(<x.1, x.2>) = x.1, snd(<x.1, x.2>) = x.2
+
+tactic: StateA
+presort: s
+prio: {id}
+  regex"HonestStepA\(" | regex"HonestStep"
+prio: {id}
+  regex"CreateDynamicState\("
+prio: {id}
+  regex"DynamicStateA\("
+
+
+tactic: StateB
+presort: s
+prio: {id}
+  regex"HonestStepB\(" | regex"HonestStep"
+prio: {id}
+  regex"CreateDynamicState\("
+prio: {id}
+  regex"DynamicStateB\("
+
+
+tactic: State
+presort: s
+prio: {id}
+  regex"HonestStepA\(" | regex"HonestStepB\(" | regex"HonestStep\("
+prio: {id}
+  regex"CreateDynamicState\("
+prio: {id}
+  regex"DynamicStateA\(" | regex"DynamicStateB\("
+
+
+tactic: CompromisedStateA
+presort: s
+prio: {id}
+  regex"AttackerStepA\(" | regex"AttackerStep"
+prio: {id}
+  regex"CreateDynamicState\("
+prio: {id}
+  regex"DynamicStateA\(" | regex"DynamicStateB"
+
+
+tactic: StepCreateDynamicStateOrdered
+presort: s
+prio: {id}
+  regex"Step\("
+prio: {id}
+  regex"CreateDynamicState\("
+
+
+tactic: HonestStep
+presort: s
+prio: {id}
+  regex"HonestStepA\(" | regex"HonestStepB\(" | regex"HonestStep\("
+prio: {id}
+  regex"!UpdateDynamicStateA\(" | regex"!UpdateDynamicStateB\("
+
+
+tactic: AttackerStep
+presort: s
+prio: {id}
+  regex"AttackerStepA\(" | regex"AttackerStepB\(" | regex"AttackerStep\("
+prio: {id}
+  regex"!UpdateDynamicStateA\(" | regex"!UpdateDynamicStateB\("
+
+
+tactic: PCS
+presort: s
+prio: {id}
+  regex"!CompromisedDevice\("
+prio: {id}
+  regex"ReceiveOrSend\(" | regex"AttackerKnows\("
+
+
+
+
+
+/*
+looping facts with injective instances:
+  CompromisedDynamicStateA/8, CompromisedDynamicStateB/8,
+  DynamicStateA/7, DynamicStateB/7, TTP/7
+*/
+
+rule (modulo E) CreateUser:
+   [ Fr( ~id ) ] --> [ !User( ~id ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) CreateUserDevice:
+   [ Fr( ~did ), !User( ~uid ) ]
+  --[ CreatedUserDevice( ~uid, ~did ) ]->
+   [ !UserDevice( ~uid, ~did ) ]
+
+  /* has exactly the trivial AC variant */
+
+restriction SingleDevicePerUser:
+  "∀ uid did1 did2 #i #j.
+    ((CreatedUserDevice( uid, did1 ) @ #i) ∧
+     (CreatedUserDevice( uid, did2 ) @ #j)) ⇒
+    (#i = #j)"
+  // safety formula
+
+rule (modulo E) CreateFirstDynamicState:
+   [
+   !UserDevice( ~uidA, ~idA ), !UserDevice( ~uidB, ~idB ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~sid ), Fr( ~ttpid ), Fr( ~t1 ), Fr( ~t2 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  HonestCreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                            <~rk, ~next_rk>
+  ),
+  FirstDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t1
+   ),
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t1
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+restriction SingleDynamicStateBetweenDevices:
+  "∀ sid1 sid2 uidA idA uidB idB rk1 rk2 #i #j.
+    ((FirstDynamicState( sid1, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+     (FirstDynamicState( sid2, uidA, idA, uidB, idB, rk2 ) @ #j)) ⇒
+    (#i = #j)"
+  // safety formula
+
+rule (modulo E) CreateNewDynamicState:
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, rks, ~t1 ),
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, rks, ~t1 ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~sid ), Fr( ~t3 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  HonestCreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                            <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t2
+   ),
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t2
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breakers: [0,1,2]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RecoverFromDynamicLossA:
+   [
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ), Fr( ~sid ),
+   Fr( ~rk ), Fr( ~next_rk ), Fr( ~t3 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  DynamicStateLossRecoveryA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t2
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerRecoverFromDynamicLossA:
+   [
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ),
+   !CompromisedDevice( ~uidA, ~idA ), Fr( ~sid ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~t3 ), Fr( ~cid )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  AttackerCreateDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                               <~rk, ~next_rk>
+  )
+  ]->
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>, ~t2
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) RecoverFromDynamicLossB:
+   [
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ), Fr( ~sid ),
+   Fr( ~rk ), Fr( ~next_rk ), Fr( ~t3 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  DynamicStateLossRecoveryB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t2
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerRecoverFromDynamicLossB:
+   [
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ),
+   !CompromisedDevice( ~uidB, ~idB ), Fr( ~sid ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~t3 ), Fr( ~cid )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  AttackerCreateDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                               <~rk, ~next_rk>
+  )
+  ]->
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>, ~t2
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) UpdateDynamicStateA_Sender:
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  token
+   ),
+   Fr( ~new_rootkey )
+   ]
+  --[
+  UpdateDynamicStateA_Sender( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                              <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  ReceiveOrSend( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+              <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestSendStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+               <<old_keys, latest>, ~new_rootkey>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>, token
+   ),
+   !UpdateDynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+restriction NoConsecutiveSendingPhasesA:
+  "∀ sid uidA idA uidB idB old_rk new_rk next_rk #i #j.
+    ((UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, old_rk,
+                                  new_rk
+      ) @ #i) ∧
+     (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                                  next_rk
+      ) @ #j)) ⇒
+    (⊥)"
+  // safety formula
+
+rule (modulo E) UpdateDynamicStateB_Receiver:
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  token
+   ),
+   !UpdateDynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+  --[
+  UpdateDynamicStateB_Receiver( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                                <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  ReceiveOrSend( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+              <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestReceiveStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                     <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+               <<old_keys, latest>, ~new_rootkey>
+  )
+  ]->
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>, token
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+restriction NoConsecutiveReceivingPhasesB:
+  "∀ sid uidA idA uidB idB old_rk new_rk next_rk #i #j.
+    ((UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, old_rk,
+                                    new_rk
+      ) @ #i) ∧
+     (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                    next_rk
+      ) @ #j)) ⇒
+    (⊥)"
+  // safety formula
+
+rule (modulo E) UpdateDynamicStateB_Sender:
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  token
+   ),
+   Fr( ~new_rootkey )
+   ]
+  --[
+  UpdateDynamicStateB_Sender( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                              <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  ReceiveOrSend( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+              <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestSendStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+               <<old_keys, latest>, ~new_rootkey>
+  )
+  ]->
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>, token
+   ),
+   !UpdateDynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+restriction NoConsecutiveSendingPhasesB:
+  "∀ sid uidA idA uidB idB old_rk new_rk next_rk #i #j.
+    ((UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, old_rk,
+                                  new_rk
+      ) @ #i) ∧
+     (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                                  next_rk
+      ) @ #j)) ⇒
+    (⊥)"
+  // safety formula
+
+rule (modulo E) UpdateDynamicStateA_Receiver:
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  token
+   ),
+   !UpdateDynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+  --[
+  UpdateDynamicStateA_Receiver( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                                <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  ReceiveOrSend( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+              <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestReceiveStep( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                     <<old_keys, latest>, ~new_rootkey>
+  ),
+  HonestStepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+               <<old_keys, latest>, ~new_rootkey>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                  <<old_keys, latest>, ~new_rootkey>, token
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+restriction NoConsecutiveReceivingPhasesA:
+  "∀ sid uidA idA uidB idB old_rk new_rk next_rk #i #j.
+    ((UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, old_rk,
+                                    new_rk
+      ) @ #i) ∧
+     (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                    next_rk
+      ) @ #j)) ⇒
+    (⊥)"
+  // safety formula
+
+rule (modulo E) CompromiseDevice:
+   [ !UserDevice( ~uid, ~did ) ]
+  --[ CompromiseDevice( ~uid, ~did ) ]->
+   [ !CompromisedDevice( ~uid, ~did ) ]
+
+  /* has exactly the trivial AC variant */
+
+restriction SingleCompromiseForSameKeyMaterial:
+  "∀ cid1 cid2 sid uidA idA uidB idB rk #i #j.
+    ((CompromiseDynamicStateAOrB( cid1, sid, uidA, idA, uidB, idB, rk
+      ) @ #i) ∧
+     (CompromiseDynamicStateAOrB( cid2, sid, uidA, idA, uidB, idB, rk
+      ) @ #j)) ⇒
+    (#i = #j)"
+  // safety formula
+
+rule (modulo E) AttackerCreateDynamicStateB:
+   [
+   !UserDevice( ~uidA, ~idA ), !CompromisedDevice( ~uidB, ~idB ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~sid ), Fr( ~cid ), Fr( ~t3 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  AttackerCreateDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                               <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t1
+   ),
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>, ~t1
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [2]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerCreateDynamicStateA:
+   [
+   !CompromisedDevice( ~uidA, ~idA ), !UserDevice( ~uidB, ~idB ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t1, ~t2 ), Fr( ~rk ),
+   Fr( ~next_rk ), Fr( ~sid ), Fr( ~cid ), Fr( ~t3 )
+   ]
+  --[
+  CreateDynamicState( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>
+  ),
+  AttackerCreateDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                               <~rk, ~next_rk>
+  )
+  ]->
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <~rk, ~next_rk>, ~t1
+   ),
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <~rk, ~next_rk>, ~t1
+   ),
+   TTP( ~ttpid, ~uidA, ~idA, ~uidB, ~idB, ~t2, ~t3 )
+   ]
+
+  // loop breaker: [2]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) CompromiseDynamicStateA:
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t1
+   ),
+   Fr( ~cid )
+   ]
+  --[
+  CompromiseA( ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  CompromiseDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                           <old_keys, latest>
+  ),
+  CompromiseAOrB( ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  CompromiseDynamicStateAOrB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                              <old_keys, latest>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  StepA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  HonestStepA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  AttackerKnows( <old_keys, latest> )
+  ]->
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t1
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) CompromiseDynamicStateB:
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t1
+   ),
+   Fr( ~cid )
+   ]
+  --[
+  CompromiseB( ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  CompromiseDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                           <old_keys, latest>
+  ),
+  CompromiseAOrB( ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  CompromiseDynamicStateAOrB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                              <old_keys, latest>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  StepB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  HonestStepB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest> ),
+  AttackerKnows( <old_keys, latest> )
+  ]->
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t1
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerUpdateDynamicStateA_Sender:
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   Fr( ~new_rootkey )
+   ]
+  --[
+  AttackerUpdateDynamicStateA_Sender( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                                      <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStep( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStepA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerKnows( <<old_keys, latest>, ~new_rootkey> )
+  ]->
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <<old_keys, latest>, ~new_rootkey>, ~t1
+   ),
+   !UpdateDynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerUpdateDynamicStateB_Receiver:
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   !UpdateDynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+  --[
+  AttackerUpdateDynamicStateB_Receiver( ~sid, ~uidA, ~idA, ~uidB,
+                                        ~idB, <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStep( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStepB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerKnows( <<old_keys, latest>, ~new_rootkey> )
+  ]->
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <<old_keys, latest>, ~new_rootkey>, ~t1
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerUpdateDynamicStateB_Sender:
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   Fr( ~new_rootkey )
+   ]
+  --[
+  AttackerUpdateDynamicStateB_Sender( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                                      <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStep( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStepB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerKnows( <<old_keys, latest>, ~new_rootkey> )
+  ]->
+   [
+   CompromisedDynamicStateB( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <<old_keys, latest>, ~new_rootkey>, ~t1
+   ),
+   !UpdateDynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) AttackerUpdateDynamicStateA_Receiver:
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <old_keys, latest>, ~t1
+   ),
+   !UpdateDynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                         <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+   )
+   ]
+  --[
+  AttackerUpdateDynamicStateA_Receiver( ~sid, ~uidA, ~idA, ~uidB,
+                                        ~idB, <old_keys, latest>, <<old_keys, latest>, ~new_rootkey>
+  ),
+  Step( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+        <<old_keys, latest>, ~new_rootkey>
+  ),
+  StepA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+         <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStep( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerStepA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                 <<old_keys, latest>, ~new_rootkey>
+  ),
+  AttackerKnows( <<old_keys, latest>, ~new_rootkey> )
+  ]->
+   [
+   CompromisedDynamicStateA( ~cid, ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                             <<old_keys, latest>, ~new_rootkey>, ~t1
+   )
+   ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) DynamicStateLossA:
+   [
+   DynamicStateA( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t
+   )
+   ]
+  --[
+  DynamicStateLossA( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                     <old_keys, latest>
+  )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) DynamicStateLossB:
+   [
+   DynamicStateB( ~sid, ~uidA, ~idA, ~uidB, ~idB, <old_keys, latest>,
+                  ~t
+   )
+   ]
+  --[
+  DynamicStateLossB( ~sid, ~uidA, ~idA, ~uidB, ~idB,
+                     <old_keys, latest>
+  )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) StaticStateLoss:
+   [ !UserDevice( ~uid, ~did ) ]
+  --[ StaticStateLoss( ~uid, ~did ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction StaticStateLossTerminatesDynamicStateA:
+  "∀ sid uidA idA uidB idB rks #i #j.
+    (((StaticStateLoss( uidA, idA ) @ #i) ∧
+      (HonestStep( sid, uidA, idA, uidB, idB, rks ) @ #j)) ∧
+     (#i < #j)) ⇒
+    (∃ #h.
+      ((StaticStateRecovery( uidA, idA ) @ #h) ∧ (#i < #h)) ∧ (#h < #j))"
+
+restriction StaticStateLossTerminatesDynamicStateB:
+  "∀ sid uidA idA uidB idB rks #i #j.
+    (((StaticStateLoss( uidB, idB ) @ #i) ∧
+      (HonestStep( sid, uidA, idA, uidB, idB, rks ) @ #j)) ∧
+     (#i < #j)) ⇒
+    (∃ #h.
+      ((StaticStateRecovery( uidB, idB ) @ #h) ∧ (#i < #h)) ∧ (#h < #j))"
+
+rule (modulo E) StaticStateRecovery:
+   [ !UserDevice( ~uid, ~did ) ]
+  --[ StaticStateRecovery( ~uid, ~did ) ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+restriction SequentialSessions_Sending:
+  "∀ sid1 sid2 uidA idA uidB idB rk1 rk2 rk3 #i #j #k.
+    (((((CreateDynamicState( sid1, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+        (CreateDynamicState( sid2, uidA, idA, uidB, idB, rk2 ) @ #j)) ∧
+       (#i < #j)) ∧
+      (HonestSendStep( sid1, uidA, idA, uidB, idB, rk3 ) @ #k)) ∧
+     (#j < #k)) ⇒
+    (⊥)"
+  // safety formula
+
+restriction SequentialSessions_Receiving:
+  "∀ sid1 sid2 uidA idA uidB idB rk1 rk2 rk3 #i #j #k.
+    (((((CreateDynamicState( sid1, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+        (CreateDynamicState( sid2, uidA, idA, uidB, idB, rk2 ) @ #j)) ∧
+       (#i < #j)) ∧
+      (HonestReceiveStep( sid1, uidA, idA, uidB, idB, rk3 ) @ #k)) ∧
+     (#j < #k)) ⇒
+    (⊥)"
+  // safety formula
+
+lemma SANITY_RatchetASender:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk #i #j.
+    (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+     ) @ #i) ∧
+    (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                   new_rk
+     ) @ #j)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk #i #j.
+  (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j)"
+*/
+by sorry
+
+lemma SANITY_RatchetBSender:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk #i #j.
+    (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+     ) @ #i) ∧
+    (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                   new_rk
+     ) @ #j)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk #i #j.
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j)"
+*/
+by sorry
+
+lemma SANITY_RatchetContinued:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l.
+    ((((((UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                      new_rk
+          ) @ #i) ∧
+         (#i < #j)) ∧
+        (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                       new_rk
+         ) @ #j)) ∧
+       (#j < #k)) ∧
+      (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+       ) @ #k)) ∧
+     (#k < #l)) ∧
+    (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+     ) @ #l)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l.
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j) ∧
+  (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                               next_rk
+   ) @ #k) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                 next_rk
+   ) @ #l)
+ ∧
+  (#i < #j) ∧ (#j < #k) ∧ (#k < #l)"
+*/
+by sorry
+
+lemma SANITY_RatchetCompromisedASender:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk #i #j.
+    (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk,
+                                         new_rk
+     ) @ #i) ∧
+    (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                   new_rk
+     ) @ #j)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk #i #j.
+  (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk,
+                                       new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j)"
+*/
+by sorry
+
+lemma SANITY_RatchetCompromisedBSender:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk #i #j.
+    (AttackerUpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                         new_rk
+     ) @ #i) ∧
+    (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                   new_rk
+     ) @ #j)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk #i #j.
+  (AttackerUpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                       new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j)"
+*/
+by sorry
+
+lemma SANITY_RatchetCompromisedContinued:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l.
+    (((UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                   new_rk
+       ) @ #i) ∧
+      (AttackerUpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB,
+                                             rk, new_rk
+       ) @ #j)) ∧
+     (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB,
+                                          new_rk, next_rk
+      ) @ #k)) ∧
+    (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+     ) @ #l)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l.
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (AttackerUpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB,
+                                         rk, new_rk
+   ) @ #j) ∧
+  (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB,
+                                       new_rk, next_rk
+   ) @ #k) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                 next_rk
+   ) @ #l)"
+*/
+by sorry
+
+lemma SANITY_AttackerCreateDynamicStateRatchetCompromisedContinued:
+  exists-trace
+  "∃ cid sid uidA idA uidB idB rk new_rk next_rk #h #i #j #k #l.
+    ((((AttackerCreateDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk
+        ) @ #h) ∧
+       (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+        ) @ #i)) ∧
+      (AttackerUpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB,
+                                             rk, new_rk
+       ) @ #j)) ∧
+     (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB,
+                                          new_rk, next_rk
+      ) @ #k)) ∧
+    (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+     ) @ #l)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ cid sid uidA idA uidB idB rk new_rk next_rk #h #i #j #k #l.
+  (AttackerCreateDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk
+   ) @ #h) ∧
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (AttackerUpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB,
+                                         rk, new_rk
+   ) @ #j) ∧
+  (AttackerUpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB,
+                                       new_rk, next_rk
+   ) @ #k) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                 next_rk
+   ) @ #l)"
+*/
+by sorry
+
+lemma SANITY_DynamicStateLossAPossible:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l #m.
+    ((((UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                    new_rk
+        ) @ #i) ∧
+       (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                      new_rk
+        ) @ #j)) ∧
+      (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+       ) @ #k)) ∧
+     (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                    next_rk
+      ) @ #l)) ∧
+    (DynamicStateLossA( sid, uidA, idA, uidB, idB, next_rk ) @ #m)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l #m.
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j) ∧
+  (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                               next_rk
+   ) @ #k) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                 next_rk
+   ) @ #l) ∧
+  (DynamicStateLossA( sid, uidA, idA, uidB, idB, next_rk ) @ #m)"
+*/
+by sorry
+
+lemma SANITY_DynamicStateLossBPossible [heuristic=C]:
+  exists-trace
+  "∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l #m.
+    ((((UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk,
+                                    new_rk
+        ) @ #i) ∧
+       (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                      new_rk
+        ) @ #j)) ∧
+      (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                                   next_rk
+       ) @ #k)) ∧
+     (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                    next_rk
+      ) @ #l)) ∧
+    (DynamicStateLossB( sid, uidA, idA, uidB, idB, next_rk ) @ #m)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid uidA idA uidB idB rk new_rk next_rk #i #j #k #l #m.
+  (UpdateDynamicStateB_Sender( sid, uidA, idA, uidB, idB, rk, new_rk
+   ) @ #i) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk,
+                                 new_rk
+   ) @ #j) ∧
+  (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, new_rk,
+                               next_rk
+   ) @ #k) ∧
+  (UpdateDynamicStateB_Receiver( sid, uidA, idA, uidB, idB, new_rk,
+                                 next_rk
+   ) @ #l) ∧
+  (DynamicStateLossB( sid, uidA, idA, uidB, idB, next_rk ) @ #m)"
+*/
+by sorry
+
+lemma PROVE_StepCreateDynamicStateOrdered [use_induction,
+                                           heuristic={StepCreateDynamicStateOrdered}, reuse]:
+  all-traces
+  "∀ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+    ((CreateDynamicState( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+     (Step( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)) ⇒
+    (((((#i < #j) ∧ (uidA1 = uidA2)) ∧ (idA1 = idA2)) ∧
+      (uidB1 = uidB2)) ∧
+     (idB1 = idB2))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+  (CreateDynamicState( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (Step( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)
+ ∧
+  ((¬(#i < #j)) ∨
+   (¬(uidA1 = uidA2)) ∨
+   (¬(idA1 = idA2)) ∨
+   (¬(uidB1 = uidB2)) ∨
+   (¬(idB1 = idB2)))"
+*/
+by sorry
+
+lemma PROVE_CreateDynamicStateUniqueForSid [use_induction, reuse]:
+  all-traces
+  "∀ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+    ((CreateDynamicState( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+     (CreateDynamicState( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)) ⇒
+    (#i = #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+  (CreateDynamicState( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (CreateDynamicState( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)
+ ∧
+  ¬(#i = #j)"
+*/
+by sorry
+
+lemma PROVE_HonestStepAExcludesAttackerStartedA [use_induction,
+                                                 reuse]:
+  all-traces
+  "∀ sid cid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i
+     #j.
+    ((HonestStepA( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+     (AttackerCreateDynamicStateA( cid, sid, uidA2, idA2, uidB2, idB2,
+                                   rk2
+      ) @ #j)) ⇒
+    (⊥)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid cid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i
+   #j.
+  (HonestStepA( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (AttackerCreateDynamicStateA( cid, sid, uidA2, idA2, uidB2, idB2,
+                                rk2
+   ) @ #j)"
+*/
+by sorry
+
+lemma PROVE_HonestStepBExcludesAttackerStartedB [use_induction,
+                                                 reuse]:
+  all-traces
+  "∀ sid cid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i
+     #j.
+    ((HonestStepB( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+     (AttackerCreateDynamicStateB( cid, sid, uidA2, idA2, uidB2, idB2,
+                                   rk2
+      ) @ #j)) ⇒
+    (⊥)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid cid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i
+   #j.
+  (HonestStepB( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (AttackerCreateDynamicStateB( cid, sid, uidA2, idA2, uidB2, idB2,
+                                rk2
+   ) @ #j)"
+*/
+by sorry
+
+lemma PROVE_HonestStepAWellfounded [use_induction, reuse]:
+  all-traces
+  "∀ sid uidA idA uidB idB rk #i.
+    (HonestStepA( sid, uidA, idA, uidB, idB, rk ) @ #i) ⇒
+    (∃ rk2 #j.
+      (#j < #i) ∧
+      (CreateDynamicState( sid, uidA, idA, uidB, idB, rk2 ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA idA uidB idB rk #i.
+  (HonestStepA( sid, uidA, idA, uidB, idB, rk ) @ #i)
+ ∧
+  ∀ rk2 #j.
+   (CreateDynamicState( sid, uidA, idA, uidB, idB, rk2 ) @ #j)
+  ⇒
+   ¬(#j < #i)"
+*/
+by sorry
+
+lemma PROVE_HonestStepBWellfounded [use_induction, reuse]:
+  all-traces
+  "∀ sid uidA idA uidB idB rk #i.
+    (HonestStepB( sid, uidA, idA, uidB, idB, rk ) @ #i) ⇒
+    (∃ rk2 #j.
+      (#j < #i) ∧
+      (CreateDynamicState( sid, uidA, idA, uidB, idB, rk2 ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA idA uidB idB rk #i.
+  (HonestStepB( sid, uidA, idA, uidB, idB, rk ) @ #i)
+ ∧
+  ∀ rk2 #j.
+   (CreateDynamicState( sid, uidA, idA, uidB, idB, rk2 ) @ #j)
+  ⇒
+   ¬(#j < #i)"
+*/
+by sorry
+
+lemma PROVE_AttackerStepAWellfounded [use_induction, reuse]:
+  all-traces
+  "∀ sid cid uidA idA uidB idB rk1 #i.
+    (AttackerStepA( cid, sid, uidA, idA, uidB, idB, rk1 ) @ #i) ⇒
+    ((∃ rk2 #j.
+       (CompromiseDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk2
+        ) @ #j) ∧
+       (#j < #i)) ∨
+     (∃ rk2 #j.
+       (AttackerCreateDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk2
+        ) @ #j) ∧
+       (#j < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid cid uidA idA uidB idB rk1 #i.
+  (AttackerStepA( cid, sid, uidA, idA, uidB, idB, rk1 ) @ #i)
+ ∧
+  (∀ rk2 #j.
+    (CompromiseDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk2
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ rk2 #j.
+    (AttackerCreateDynamicStateA( cid, sid, uidA, idA, uidB, idB, rk2
+     ) @ #j)
+   ⇒
+    ¬(#j < #i))"
+*/
+by sorry
+
+lemma PROVE_AttackerStepBWellfounded [use_induction, heuristic=i,
+                                      reuse]:
+  all-traces
+  "∀ sid cid uidA idA uidB idB rk1 #i.
+    (AttackerStepB( cid, sid, uidA, idA, uidB, idB, rk1 ) @ #i) ⇒
+    ((∃ rk2 #j.
+       (CompromiseDynamicStateB( cid, sid, uidA, idA, uidB, idB, rk2
+        ) @ #j) ∧
+       (#j < #i)) ∨
+     (∃ rk2 #j.
+       (AttackerCreateDynamicStateB( cid, sid, uidA, idA, uidB, idB, rk2
+        ) @ #j) ∧
+       (#j < #i)))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid cid uidA idA uidB idB rk1 #i.
+  (AttackerStepB( cid, sid, uidA, idA, uidB, idB, rk1 ) @ #i)
+ ∧
+  (∀ rk2 #j.
+    (CompromiseDynamicStateB( cid, sid, uidA, idA, uidB, idB, rk2
+     ) @ #j)
+   ⇒
+    ¬(#j < #i)) ∧
+  (∀ rk2 #j.
+    (AttackerCreateDynamicStateB( cid, sid, uidA, idA, uidB, idB, rk2
+     ) @ #j)
+   ⇒
+    ¬(#j < #i))"
+*/
+by sorry
+
+lemma PROVE_StepATotallyOrdered [heuristic=C, reuse]:
+  all-traces
+  "∀ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+    (((StepA( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+      (StepA( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)) ∧
+     (¬(rk1 = rk2))) ⇒
+    ((#i < #j) ∨ (#j < #i))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+  (StepA( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (StepA( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)
+ ∧
+  (¬(rk1 = rk2)) ∧ (¬(#i < #j)) ∧ (¬(#j < #i))"
+*/
+by sorry
+
+lemma PROVE_StepBTotallyOrdered [heuristic=C, reuse]:
+  all-traces
+  "∀ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+    (((StepB( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+      (StepB( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)) ∧
+     (¬(rk1 = rk2))) ⇒
+    ((#i < #j) ∨ (#j < #i))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk1 rk2 #i #j.
+  (StepB( sid, uidA1, idA1, uidB1, idB1, rk1 ) @ #i) ∧
+  (StepB( sid, uidA2, idA2, uidB2, idB2, rk2 ) @ #j)
+ ∧
+  (¬(rk1 = rk2)) ∧ (¬(#i < #j)) ∧ (¬(#j < #i))"
+*/
+by sorry
+
+lemma PROVE_HonestStepABeforeDynamicStateLossA [use_induction,
+                                                heuristic={State}, reuse]:
+  all-traces
+  "∀ sid uidA idA uidB idB rk1 rk2 #i #j.
+    ((HonestStepA( sid, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+     (DynamicStateLossA( sid, uidA, idA, uidB, idB, rk2 ) @ #j)) ⇒
+    (#i < #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA idA uidB idB rk1 rk2 #i #j.
+  (HonestStepA( sid, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+  (DynamicStateLossA( sid, uidA, idA, uidB, idB, rk2 ) @ #j)
+ ∧
+  ¬(#i < #j)"
+*/
+by sorry
+
+lemma PROVE_HonestStepBBeforeDynamicStateLossB [use_induction,
+                                                heuristic={State}, reuse]:
+  all-traces
+  "∀ sid uidA idA uidB idB rk1 rk2 #i #j.
+    ((HonestStepB( sid, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+     (DynamicStateLossB( sid, uidA, idA, uidB, idB, rk2 ) @ #j)) ⇒
+    (#i < #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid uidA idA uidB idB rk1 rk2 #i #j.
+  (HonestStepB( sid, uidA, idA, uidB, idB, rk1 ) @ #i) ∧
+  (DynamicStateLossB( sid, uidA, idA, uidB, idB, rk2 ) @ #j)
+ ∧
+  ¬(#i < #j)"
+*/
+by sorry
+
+lemma PROVE_HonestStepWithSameRKImpliesSameSid [heuristic={HonestStep},
+                                                reuse]:
+  all-traces
+  "∀ sid1 sid2 uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk #i #j.
+    ((HonestStep( sid1, uidA1, idA1, uidB1, idB1, rk ) @ #i) ∧
+     (HonestStep( sid2, uidA2, idA2, uidB2, idB2, rk ) @ #j)) ⇒
+    (sid1 = sid2)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ sid1 sid2 uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2 rk #i #j.
+  (HonestStep( sid1, uidA1, idA1, uidB1, idB1, rk ) @ #i) ∧
+  (HonestStep( sid2, uidA2, idA2, uidB2, idB2, rk ) @ #j)
+ ∧
+  ¬(sid1 = sid2)"
+*/
+by sorry
+
+lemma PROVE_AttackerStepWithSameRKImpliesSameSid [heuristic={AttackerStep},
+                                                  reuse]:
+  all-traces
+  "∀ cid1 cid2 sid1 sid2 uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2
+     rk #i #j.
+    ((AttackerStep( cid1, sid1, uidA1, idA1, uidB1, idB1, rk ) @ #i) ∧
+     (AttackerStep( cid2, sid2, uidA2, idA2, uidB2, idB2, rk ) @ #j)) ⇒
+    (sid1 = sid2)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ cid1 cid2 sid1 sid2 uidA1 uidA2 idA1 idA2 uidB1 uidB2 idB1 idB2
+   rk #i #j.
+  (AttackerStep( cid1, sid1, uidA1, idA1, uidB1, idB1, rk ) @ #i) ∧
+  (AttackerStep( cid2, sid2, uidA2, idA2, uidB2, idB2, rk ) @ #j)
+ ∧
+  ¬(sid1 = sid2)"
+*/
+by sorry
+
+lemma NOPROVE_SessionPCS_FullCompromise [reuse]:
+  all-traces
+  "∀ uidA idA uidB idB rk1 rk2 rk3 rk4 rk5 rk6 sid1 #i2 #i3 #i4 #i5.
+    ((((((#i2 < #i3) ∧ (#i3 < #i4)) ∧
+        (UpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB, rk1, rk2
+         ) @ #i2)) ∧
+       (UpdateDynamicStateA_Receiver( sid1, uidA, idA, uidB, idB, rk3, rk4
+        ) @ #i3)) ∧
+      (ReceiveOrSend( sid1, uidA, idA, uidB, idB, rk5, rk6 ) @ #i4)) ∧
+     (AttackerKnows( rk5 ) @ #i5)) ⇒
+    ((((∃ rk6.1 #l.
+         (#i2 < #l) ∧ (CompromiseA( uidA, idA, uidB, idB, rk6.1 ) @ #l)) ∨
+       (∃ rk6.1 #l. CompromiseB( uidA, idA, uidB, idB, rk6.1 ) @ #l)) ∨
+      (∃ #l. (#i2 < #l) ∧ (CompromiseDevice( uidA, idA ) @ #l))) ∨
+     (∃ #l. CompromiseDevice( uidB, idB ) @ #l))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ uidA idA uidB idB rk1 rk2 rk3 rk4 rk5 rk6 sid1 #i2 #i3 #i4 #i5.
+  (UpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB, rk1, rk2
+   ) @ #i2) ∧
+  (UpdateDynamicStateA_Receiver( sid1, uidA, idA, uidB, idB, rk3, rk4
+   ) @ #i3) ∧
+  (ReceiveOrSend( sid1, uidA, idA, uidB, idB, rk5, rk6 ) @ #i4) ∧
+  (AttackerKnows( rk5 ) @ #i5)
+ ∧
+  (#i2 < #i3) ∧
+  (#i3 < #i4) ∧
+  (∀ rk6.1 #l.
+    (CompromiseA( uidA, idA, uidB, idB, rk6.1 ) @ #l) ⇒ ¬(#i2 < #l)) ∧
+  (∀ rk6.1 #l.
+    (CompromiseB( uidA, idA, uidB, idB, rk6.1 ) @ #l) ⇒ ⊥) ∧
+  (∀ #l. (CompromiseDevice( uidA, idA ) @ #l) ⇒ ¬(#i2 < #l)) ∧
+  (∀ #l. (CompromiseDevice( uidB, idB ) @ #l) ⇒ ⊥)"
+*/
+by sorry
+
+lemma PROVE_ConversationPCS_FullCompromise [heuristic={PCS}]:
+  all-traces
+  "∀ uidA idA uidB idB rk1 rk2 rk3 rk4 rk5 rk6 sid1 sid2 sid3 #i2 #i3
+     #i4 #i5.
+    ((((((#i2 < #i3) ∧ (#i3 < #i4)) ∧
+        (UpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB, rk1, rk2
+         ) @ #i2)) ∧
+       (UpdateDynamicStateA_Receiver( sid2, uidA, idA, uidB, idB, rk3, rk4
+        ) @ #i3)) ∧
+      (ReceiveOrSend( sid3, uidA, idA, uidB, idB, rk5, rk6 ) @ #i4)) ∧
+     (AttackerKnows( rk5 ) @ #i5)) ⇒
+    ((((∃ rk6.1 #l.
+         (#i2 < #l) ∧ (CompromiseA( uidA, idA, uidB, idB, rk6.1 ) @ #l)) ∨
+       (∃ rk6.1 #l. CompromiseB( uidA, idA, uidB, idB, rk6.1 ) @ #l)) ∨
+      (∃ #l. (#i2 < #l) ∧ (CompromiseDevice( uidA, idA ) @ #l))) ∨
+     (∃ #l. CompromiseDevice( uidB, idB ) @ #l))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ uidA idA uidB idB rk1 rk2 rk3 rk4 rk5 rk6 sid1 sid2 sid3 #i2 #i3
+   #i4 #i5.
+  (UpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB, rk1, rk2
+   ) @ #i2) ∧
+  (UpdateDynamicStateA_Receiver( sid2, uidA, idA, uidB, idB, rk3, rk4
+   ) @ #i3) ∧
+  (ReceiveOrSend( sid3, uidA, idA, uidB, idB, rk5, rk6 ) @ #i4) ∧
+  (AttackerKnows( rk5 ) @ #i5)
+ ∧
+  (#i2 < #i3) ∧
+  (#i3 < #i4) ∧
+  (∀ rk6.1 #l.
+    (CompromiseA( uidA, idA, uidB, idB, rk6.1 ) @ #l) ⇒ ¬(#i2 < #l)) ∧
+  (∀ rk6.1 #l.
+    (CompromiseB( uidA, idA, uidB, idB, rk6.1 ) @ #l) ⇒ ⊥) ∧
+  (∀ #l. (CompromiseDevice( uidA, idA ) @ #l) ⇒ ¬(#i2 < #l)) ∧
+  (∀ #l. (CompromiseDevice( uidB, idB ) @ #l) ⇒ ⊥)"
+*/
+by sorry
+
+lemma PROVE_ConversationPCS_FullCompromise_CEX [heuristic=C]:
+  exists-trace
+  "∃ sid sid1 sid2 cid uidA idA uidB idB rk rk1 rk2 rk3 rk4 rk5 rk6
+     rk7 rk8 rk9 rk10 #i #j #k #l #m #n #o #p.
+    ((((((((((((((CreateDynamicState( sid, uidA, idA, uidB, idB, rk
+                  ) @ #i) ∧
+                 (#i < #j)) ∧
+                (CompromiseDevice( uidA, idA ) @ #j)) ∧
+               (#j < #k)) ∧
+              (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk1, rk2
+               ) @ #k)) ∧
+             (#k < #l)) ∧
+            (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk3, rk4
+             ) @ #l)) ∧
+           (#l < #m)) ∧
+          (AttackerCreateDynamicStateA( cid, sid1, uidA, idA, uidB, idB, rk5
+           ) @ #m)) ∧
+         (#m < #n)) ∧
+        (AttackerUpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB,
+                                             rk6, rk7
+         ) @ #n)) ∧
+       (#n < #o)) ∧
+      (UpdateDynamicStateB_Receiver( sid1, uidA, idA, uidB, idB, rk8, rk9
+       ) @ #o)) ∧
+     (#o < #p)) ∧
+    (DynamicStateLossRecoveryA( sid2, uidA, idA, uidB, idB, rk10
+     ) @ #p)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ sid sid1 sid2 cid uidA idA uidB idB rk rk1 rk2 rk3 rk4 rk5 rk6
+   rk7 rk8 rk9 rk10 #i #j #k #l #m #n #o #p.
+  (CreateDynamicState( sid, uidA, idA, uidB, idB, rk ) @ #i) ∧
+  (CompromiseDevice( uidA, idA ) @ #j) ∧
+  (UpdateDynamicStateA_Sender( sid, uidA, idA, uidB, idB, rk1, rk2
+   ) @ #k) ∧
+  (UpdateDynamicStateA_Receiver( sid, uidA, idA, uidB, idB, rk3, rk4
+   ) @ #l) ∧
+  (AttackerCreateDynamicStateA( cid, sid1, uidA, idA, uidB, idB, rk5
+   ) @ #m) ∧
+  (AttackerUpdateDynamicStateA_Sender( sid1, uidA, idA, uidB, idB,
+                                       rk6, rk7
+   ) @ #n) ∧
+  (UpdateDynamicStateB_Receiver( sid1, uidA, idA, uidB, idB, rk8, rk9
+   ) @ #o) ∧
+  (DynamicStateLossRecoveryA( sid2, uidA, idA, uidB, idB, rk10
+   ) @ #p)
+ ∧
+  (#i < #j) ∧
+  (#j < #k) ∧
+  (#k < #l) ∧
+  (#l < #m) ∧
+  (#m < #n) ∧
+  (#n < #o) ∧
+  (#o < #p)"
+*/
+simplify
+solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB, ~idB, rk.1
+       ) @ #i )
+  case AttackerCreateDynamicStateA
+  by contradiction /* from formulas */
+next
+  case AttackerCreateDynamicStateB
+  by sorry
+next
+  case AttackerRecoverFromDynamicLossA
+  by contradiction /* from formulas */
+next
+  case AttackerRecoverFromDynamicLossB
+  by sorry
+next
+  case CreateFirstDynamicState
+  solve( !UserDevice( ~uid, ~did ) ▶₀ #j )
+    case CreateUserDevice
+    solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB, ~idB, rk2
+           ) @ #i )
+      case CreateFirstDynamicState
+      solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB, ~idB, rk2
+             ) @ #i )
+        case CreateFirstDynamicState
+        solve( DynamicStateA( ~sid, ~uid, ~did, ~uidB, ~idB,
+                              <old_keys, latest>, token
+               ) ▶₀ #k )
+          case CompromiseDynamicStateA
+          by sorry
+        next
+          case CreateFirstDynamicState
+          solve( DynamicStateA( ~sid, ~uid, ~did, ~uidB, ~idB,
+                                <old_keys, latest>, ~t1
+                 ) ▶₀ #l )
+            case CompromiseDynamicStateA
+            simplify
+            by sorry
+          next
+            case UpdateDynamicStateA_Receiver_case_1
+            simplify
+            by contradiction /* from formulas */
+          next
+            case UpdateDynamicStateA_Receiver_case_2
+            simplify
+            by contradiction /* from formulas */
+          next
+            case UpdateDynamicStateA_Sender
+            solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB, ~idB, rk2
+                   ) @ #i )
+              case CreateFirstDynamicState
+              solve( CompromisedDynamicStateA( ~cid, ~sid.1, ~uid, ~did, ~uidB,
+                                               ~idB, <old_keys.1, latest.1>, ~t1.1
+                     ) ▶₀ #n )
+                case AttackerCreateDynamicStateA
+                solve( TTP( ~ttpid.2, ~uid, ~did, ~uidB, ~idB, ~t1.1, ~t2.2
+                       ) ▶₂ #j.1 )
+                  case AttackerCreateDynamicStateA
+                  by sorry
+                next
+                  case AttackerCreateDynamicStateB
+                  by sorry
+                next
+                  case AttackerRecoverFromDynamicLossA
+                  by sorry
+                next
+                  case AttackerRecoverFromDynamicLossB
+                  by sorry
+                next
+                  case CreateFirstDynamicState
+                  solve( DynamicStateB( ~sid.1, ~uid, ~did, ~uidB, ~idB,
+                                        <old_keys.1, latest.1>, token
+                         ) ▶₀ #o )
+                    case AttackerCreateDynamicStateA
+                    solve( AttackerCreateDynamicStateA( cid.1, ~sid.1, ~uid, ~did,
+                                                        ~uidB, ~idB, rk5
+                           ) @ #m )
+                      case AttackerCreateDynamicStateA
+                      solve( (∃ rk2 #j.
+                               (CompromiseDynamicStateA( ~cid, ~sid.1, ~uid, ~did, ~uidB, ~idB,
+                                                         rk2
+                                ) @ #j)
+                              ∧
+                               #j < #n)  ∥
+                             (∃ rk2 #j.
+                               (AttackerCreateDynamicStateA( ~cid, ~sid.1, ~uid, ~did, ~uidB,
+                                                             ~idB, rk2
+                                ) @ #j)
+                              ∧
+                               #j < #n) )
+                        case case_2
+                        solve( AttackerCreateDynamicStateA( ~cid, ~sid.1, ~uid, ~did,
+                                                            ~uidB, ~idB, rk2.1
+                               ) @ #j.1 )
+                          case AttackerCreateDynamicStateA
+                          solve( CreateDynamicState( ~sid.1, ~uid, ~did, ~uidB, ~idB, rk2
+                                 ) @ #m )
+                            case AttackerCreateDynamicStateA
+                            solve( DynamicStateA( ~sid, ~uid, ~did, ~uidB, ~idB,
+                                                  <old_keys, latest>, ~t1
+                                   ) ▶₀ #vr.4 )
+                              case CompromiseDynamicStateA
+                              by sorry
+                            next
+                              case CreateFirstDynamicState
+                              solve( !UpdateDynamicStateB( ~sid.1, ~uid, ~did, ~uidB, ~idB,
+                                                           <~rk.1, ~next_rk.1>,
+                                                           <<~rk.1, ~next_rk.1>, ~new_rootkey.3>
+                                     ) ▶₁ #o )
+                                case AttackerUpdateDynamicStateA_Sender
+                                solve( (∃ rk2 #j.
+                                         (CompromiseDynamicStateA( ~cid.1, ~sid.1, ~uid, ~did,
+                                                                   ~uidB, ~idB, rk2
+                                          ) @ #j)
+                                        ∧
+                                         #j < #vr.5)  ∥
+                                       (∃ rk2 #j.
+                                         (AttackerCreateDynamicStateA( ~cid.1, ~sid.1, ~uid, ~did,
+                                                                       ~uidB, ~idB, rk2
+                                          ) @ #j)
+                                        ∧
+                                         #j < #vr.5) )
+                                  case case_1
+                                  by contradiction /* from formulas */
+                                next
+                                  case case_2
+                                  solve( (<<~rk.1, ~next_rk.1>, ~new_rootkey.2> =
+                                          <<~rk.1, ~next_rk.1>, ~new_rootkey.3>)  ∥
+                                         (#n < #vr.5)  ∥ (#vr.5 < #n) )
+                                    case case_1
+                                    solve( AttackerCreateDynamicStateA( ~cid, ~sid.1, ~uid, ~did,
+                                                                        ~uidB, ~idB, rk2
+                                           ) @ #j.1 )
+                                      case AttackerCreateDynamicStateA
+                                      solve( !UpdateDynamicStateA( ~sid, ~uid, ~did, ~uidB, ~idB,
+                                                                   <<~rk, ~next_rk>, ~new_rootkey>,
+                                                                   <
+                                                                    <<~rk, ~next_rk>, ~new_rootkey
+                                                                    >, 
+                                                                    ~new_rootkey.1>
+                                             ) ▶₁ #l )
+                                        case AttackerUpdateDynamicStateB_Sender
+                                        by sorry
+                                      next
+                                        case UpdateDynamicStateB_Sender
+                                        solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB, ~idB,
+                                                                   rk2
+                                               ) @ #i )
+                                          case CreateFirstDynamicState
+                                          solve( TTP( ~ttpid.1, ~uid, ~did, ~uidB, ~idB, ~t1.1,
+                                                      ~t2.1
+                                                 ) ▶₀ #p )
+                                            case AttackerCreateDynamicStateA
+                                            solve( TTP( ~ttpid.1, ~uid, ~did, ~uidB, ~idB, ~t1.2,
+                                                        ~t1.1
+                                                   ) ▶₂ #vr.6 )
+                                              case AttackerCreateDynamicStateA
+                                              by sorry
+                                            next
+                                              case AttackerCreateDynamicStateB
+                                              by sorry
+                                            next
+                                              case AttackerRecoverFromDynamicLossA
+                                              by sorry
+                                            next
+                                              case AttackerRecoverFromDynamicLossB
+                                              by sorry
+                                            next
+                                              case CreateFirstDynamicState
+                                              solve( DynamicStateB( ~sid, ~uid, ~did, ~uidB, ~idB,
+                                                                    <<~rk, ~next_rk>, ~new_rootkey>,
+                                                                    token
+                                                     ) ▶₀ #vr.5 )
+                                                case CompromiseDynamicStateB
+                                                by sorry
+                                              next
+                                                case UpdateDynamicStateB_Receiver
+                                                solve( CreateDynamicState( ~sid, ~uid, ~did, ~uidB,
+                                                                           ~idB, rk2
+                                                       ) @ #i )
+                                                  case CreateFirstDynamicState
+                                                  solve( CreateDynamicState( ~sid, ~uid, ~did,
+                                                                             ~uidB, ~idB, rk2
+                                                         ) @ #i )
+                                                    case CreateFirstDynamicState
+                                                    solve( DynamicStateB( ~sid, ~uid, ~did, ~uidB,
+                                                                          ~idB, <~rk, ~next_rk>,
+                                                                          token
+                                                           ) ▶₀ #vr.6 )
+                                                      case CompromiseDynamicStateB
+                                                      by sorry
+                                                    next
+                                                      case CreateFirstDynamicState
+                                                      SOLVED // trace found
+                                                    qed
+                                                  qed
+                                                qed
+                                              qed
+                                            next
+                                              case CreateNewDynamicState
+                                              by sorry
+                                            next
+                                              case RecoverFromDynamicLossA
+                                              by sorry
+                                            next
+                                              case RecoverFromDynamicLossB
+                                              by sorry
+                                            qed
+                                          next
+                                            case AttackerCreateDynamicStateB
+                                            by sorry
+                                          next
+                                            case AttackerRecoverFromDynamicLossA
+                                            by sorry
+                                          next
+                                            case AttackerRecoverFromDynamicLossB
+                                            by sorry
+                                          next
+                                            case CreateNewDynamicState
+                                            by sorry
+                                          next
+                                            case RecoverFromDynamicLossA
+                                            by sorry
+                                          next
+                                            case RecoverFromDynamicLossB
+                                            by sorry
+                                          qed
+                                        qed
+                                      qed
+                                    qed
+                                  next
+                                    case case_2
+                                    by sorry
+                                  next
+                                    case case_3
+                                    by sorry
+                                  qed
+                                qed
+                              next
+                                case UpdateDynamicStateA_Sender
+                                by contradiction /* from formulas */
+                              qed
+                            next
+                              case UpdateDynamicStateA_Receiver_case_1
+                              simplify
+                              by sorry
+                            next
+                              case UpdateDynamicStateA_Receiver_case_2
+                              simplify
+                              by sorry
+                            next
+                              case UpdateDynamicStateA_Sender
+                              simplify
+                              by contradiction /* from formulas */
+                            qed
+                          qed
+                        qed
+                      qed
+                    qed
+                  next
+                    case CompromiseDynamicStateB
+                    by sorry
+                  next
+                    case UpdateDynamicStateB_Receiver_case_1
+                    by contradiction /* from formulas */
+                  next
+                    case UpdateDynamicStateB_Receiver_case_2
+                    by contradiction /* from formulas */
+                  next
+                    case UpdateDynamicStateB_Sender
+                    by sorry
+                  qed
+                next
+                  case CreateNewDynamicState
+                  by sorry
+                next
+                  case RecoverFromDynamicLossA
+                  by sorry
+                next
+                  case RecoverFromDynamicLossB
+                  by sorry
+                qed
+              next
+                case AttackerRecoverFromDynamicLossA
+                by sorry
+              next
+                case AttackerUpdateDynamicStateA_Receiver_case_1
+                by sorry
+              next
+                case AttackerUpdateDynamicStateA_Receiver_case_2
+                by sorry
+              next
+                case AttackerUpdateDynamicStateA_Sender
+                by sorry
+              next
+                case CompromiseDynamicStateA
+                by contradiction /* from formulas */
+              qed
+            qed
+          qed
+        next
+          case UpdateDynamicStateA_Receiver_case_1
+          by sorry
+        next
+          case UpdateDynamicStateA_Receiver_case_2
+          by sorry
+        next
+          case UpdateDynamicStateA_Sender
+          by contradiction /* from formulas */
+        qed
+      qed
+    qed
+  qed
+next
+  case CreateNewDynamicState
+  by sorry
+next
+  case RecoverFromDynamicLossA
+  by sorry
+next
+  case RecoverFromDynamicLossB
+  by sorry
+qed
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Derivation Checks
+=================
+
+  Derivation checks timed out.
+  Use --derivcheck-timeout=INT to configure timeout.
+  Set to 0 to deactivate for no timeout.
+*/
+
+/*
+Generated from:
+Tamarin version 1.9.0
+Maude version 3.2 (unsupported)
+Git revision: ea7b979e436fc32f98369dd4e349fa0c6f1b1efd (with uncommited changes), branch: develop
+Compiled at: 2024-07-10 11:47:09.315876473 UTC
+*/
+
+end
