@@ -141,3 +141,11 @@ specified an ``exists-trace'' lemma which encodes the trace. In the `proofs` fol
 #### Proposal
 In this model, all intermediate statements can be proven fully automatic in around 23 seconds via `make proposal-proofs`. As for the `sequential` model, we provide a partitioned proof in the `proofs` folder.
 The original runtime of this proof was around 1 hour. We were not able to prove PCS via the command-line interface.
+
+-------
+
+### Authors
+
+Cas Cremers, Niklas Medinger, Aurora Naska
+
+CISPA Helmholtz Center for Information Security (2024)
